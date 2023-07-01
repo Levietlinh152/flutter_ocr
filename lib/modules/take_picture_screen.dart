@@ -1,5 +1,7 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:quick_actions/quick_actions.dart';
@@ -17,7 +19,7 @@ class _TakePictureScreenState extends State<TakePictureScreen> {
   bool isPickedPhoto = false;
   AssetPathEntity? selectedAlbum;
   List<AssetEntity>? _galleryAssets;
-
+  String? resultText;
   @override
   void initState() {
     super.initState();
@@ -59,7 +61,14 @@ class _TakePictureScreenState extends State<TakePictureScreen> {
       print('Permission denied');
     }
   }
-
+ Future<void> processImage(String imgPath) async { 
+    final  TextRecognizer recognizer = TextRecognizer();
+    final image = InputImage.fromFile(File(imgPath));
+    final recognized = await recognizer.processImage(image);
+    setState(() {
+      resultText =recognized.text;
+    });
+  }
   Future<void> openGallery() async {
     final ImagePicker picker = ImagePicker();
     pickedPhoto = await picker.pickImage(source: ImageSource.gallery);
@@ -128,7 +137,7 @@ class _TakePictureScreenState extends State<TakePictureScreen> {
     return Container(
         padding: const EdgeInsets.only(top: 10),
         width: MediaQuery.of(context).size.width,
-        child: Text('result'));
+        child: Text(resultText ?? ''));
   }
 
   Widget _listFuntionButtons() {
@@ -152,7 +161,7 @@ class _TakePictureScreenState extends State<TakePictureScreen> {
           Expanded(
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(),
-              onPressed: () => (),
+              onPressed: () => processImage(pickedPhotoPath??''),
               child: const Text(
                 'Run',
                 style: TextStyle(fontSize: 14),
