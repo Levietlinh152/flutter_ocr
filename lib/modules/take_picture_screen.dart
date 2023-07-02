@@ -19,7 +19,6 @@ class TakePictureScreen extends StatefulWidget {
 class _TakePictureScreenState extends State<TakePictureScreen> {
   String? pickedPhotoPath;
   XFile? pickedPhoto;
-  AssetPathEntity? selectedAlbum;
   List<AssetEntity>? _galleryAssets;
   String? resultText;
   var listInformation = [];
@@ -31,6 +30,7 @@ class _TakePictureScreenState extends State<TakePictureScreen> {
     const QuickActions quickActions = QuickActions();
     quickActions.initialize((String shortcutType) async {
       if (shortcutType == 'action_one') {
+        cancelProcess();
         await getFirstPicture();
         await processImage(pickedPhotoPath);
       }
@@ -50,6 +50,7 @@ class _TakePictureScreenState extends State<TakePictureScreen> {
         onLaunch: (Map<String, dynamic> message) async {
       debugPrint('[FlutterSiriSuggestions] [onLaunch] $message');
       setState(() async {
+        cancelProcess();
         await getFirstPicture();
         await processImage(pickedPhotoPath);
       });
@@ -137,6 +138,7 @@ class _TakePictureScreenState extends State<TakePictureScreen> {
       setState(() {
         pickedPhotoPath = pickedPhoto?.path;
         listInformation = [];
+        resultText = '';
       });
     }
   }
