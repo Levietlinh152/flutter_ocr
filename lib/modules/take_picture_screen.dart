@@ -1,6 +1,9 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_ocr/models/image_information.dart';
+import 'package:flutter_siri_suggestions/flutter_siri_suggestions.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:photo_manager/photo_manager.dart';
@@ -16,17 +19,20 @@ class TakePictureScreen extends StatefulWidget {
 class _TakePictureScreenState extends State<TakePictureScreen> {
   String? pickedPhotoPath;
   XFile? pickedPhoto;
-  bool isPickedPhoto = false;
   AssetPathEntity? selectedAlbum;
   List<AssetEntity>? _galleryAssets;
   String? resultText;
+  var listInformation = [];
   @override
   void initState() {
     super.initState();
+    initSuggestions(); // addd short cut for ios
+    //
     const QuickActions quickActions = QuickActions();
-    quickActions.initialize((String shortcutType) {
+    quickActions.initialize((String shortcutType) async {
       if (shortcutType == 'action_one') {
-        getFirstPicture();
+        await getFirstPicture();
+        await processImage(pickedPhotoPath);
       }
     });
     quickActions.setShortcutItems(<ShortcutItem>[
@@ -37,6 +43,25 @@ class _TakePictureScreenState extends State<TakePictureScreen> {
       ),
     ]);
     // _requestAssets();
+  }
+
+  void initSuggestions() async {
+    FlutterSiriSuggestions.instance.configure(
+        onLaunch: (Map<String, dynamic> message) async {
+      debugPrint('[FlutterSiriSuggestions] [onLaunch] $message');
+      setState(() async {
+        await getFirstPicture();
+        await processImage(pickedPhotoPath);
+      });
+    });
+
+    await FlutterSiriSuggestions.instance.registerActivity(
+        const FlutterSiriActivity("Process First Image", "mainActivity",
+            isEligibleForSearch: true,
+            isEligibleForPrediction: true,
+            contentDescription: "Process First Image",
+            suggestedInvocationPhrase: "open my app",
+            userInfo: {"info": "sample"}));
   }
 
   Future<void> getFirstPicture() async {
@@ -61,22 +86,57 @@ class _TakePictureScreenState extends State<TakePictureScreen> {
       print('Permission denied');
     }
   }
- Future<void> processImage(String imgPath) async { 
-    final  TextRecognizer recognizer = TextRecognizer();
-    final image = InputImage.fromFile(File(imgPath));
-    final recognized = await recognizer.processImage(image);
+
+  Future<void> processImage(String? imgPath) async {
+    if (imgPath != null) {
+      if (listInformation.isEmpty) {
+        // Recognized Text
+        final textRecognizer =
+            TextRecognizer(script: TextRecognitionScript.latin);
+        var image = InputImage.fromFile(File(imgPath));
+        RecognizedText recognizedText =
+            await textRecognizer.processImage(image);
+        // create json
+        for (TextBlock block in recognizedText.blocks) {
+          for (int i = 0; i < block.lines.length; i++) {
+            String _text = block.lines[i].text;
+            int _x = block.lines[i].cornerPoints[0].x;
+            int _y = block.lines[i].cornerPoints[0].y;
+            //
+            listInformation.add(ImageInformation(x: _x, y: _y, text: _text).toJson());
+          }
+        }
+        setState(() {
+          resultText = listInformation.toString();
+        });
+         await Clipboard.setData(ClipboardData(text: listInformation.toString())).then((_) => 
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(listInformation.isEmpty ? 'Cant detect this Image' : 'Export json successful'),
+      )));
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text("Please choose a image"),
+      ));
+    }
+  }
+
+  Future<void> cancelProcess() async {
     setState(() {
-      resultText =recognized.text;
+      pickedPhotoPath = null;
+      resultText = '';
+      listInformation = [];
     });
   }
+
   Future<void> openGallery() async {
     final ImagePicker picker = ImagePicker();
     pickedPhoto = await picker.pickImage(source: ImageSource.gallery);
 
     if (pickedPhoto != null) {
       setState(() {
-        isPickedPhoto = true;
         pickedPhotoPath = pickedPhoto?.path;
+        listInformation = [];
       });
     }
   }
@@ -148,9 +208,9 @@ class _TakePictureScreenState extends State<TakePictureScreen> {
           Expanded(
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(),
-              onPressed: () {},
+              onPressed: () => cancelProcess(),
               child: const Text(
-                'Cancel',
+                'Clear',
                 style: TextStyle(fontSize: 14),
               ),
             ),
@@ -161,7 +221,7 @@ class _TakePictureScreenState extends State<TakePictureScreen> {
           Expanded(
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(),
-              onPressed: () => processImage(pickedPhotoPath??''),
+              onPressed: () => processImage(pickedPhotoPath),
               child: const Text(
                 'Run',
                 style: TextStyle(fontSize: 14),
