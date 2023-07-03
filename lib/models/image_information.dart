@@ -15,7 +15,7 @@ class ImageInformation {
     final Map<String, dynamic> data = <String, dynamic>{};
     data['x'] = x;
     data['y'] = y;
-    data['text'] = text;
+    data['text'] = "$text";
     return data;
   }
 }

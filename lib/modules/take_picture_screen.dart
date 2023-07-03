@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -7,7 +8,7 @@ import 'package:flutter_siri_suggestions/flutter_siri_suggestions.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:photo_manager/photo_manager.dart';
-import 'package:quick_actions/quick_actions.dart';
+import 'package:share_plus/share_plus.dart';
 
 class TakePictureScreen extends StatefulWidget {
   const TakePictureScreen({super.key});
@@ -27,37 +28,52 @@ class _TakePictureScreenState extends State<TakePictureScreen> {
     super.initState();
     initSuggestions(); // addd short cut for ios
     //
-    const QuickActions quickActions = QuickActions();
-    quickActions.initialize((String shortcutType) async {
-      if (shortcutType == 'action_one') {
-        cancelProcess();
-        await getFirstPicture();
-        await processImage(pickedPhotoPath);
-      }
-    });
-    quickActions.setShortcutItems(<ShortcutItem>[
-      const ShortcutItem(
-        type: 'action_one',
-        localizedTitle: 'Take a picture',
-        icon: 'add_photo',
-      ),
-    ]);
-    // _requestAssets();
+    // const QuickActions quickActions = QuickActions();
+    // quickActions.initialize((String shortcutType) async {
+    //   if (shortcutType == 'action_one') {
+    //     cancelProcess();
+    //     await getFirstPicture();
+    //     await processImage(pickedPhotoPath);
+    //   }
+    // });
+    // quickActions.setShortcutItems(<ShortcutItem>[
+    //   const ShortcutItem(
+    //     type: 'action_one',
+    //     localizedTitle: 'Take a picture',
+    //     icon: 'add_photo',
+    //   ),
+    // ]);
+    // // _requestAssets();
   }
 
   void initSuggestions() async {
     FlutterSiriSuggestions.instance.configure(
         onLaunch: (Map<String, dynamic> message) async {
-      debugPrint('[FlutterSiriSuggestions] [onLaunch] $message');
-      setState(() async {
-        cancelProcess();
-        await getFirstPicture();
-        await processImage(pickedPhotoPath);
-      });
+      switch (message["key"]) {
+        case "mainActivity":
+          setState(() {
+            generateFirstImage();
+          });
+          break;
+        case "shareActivity":
+          setState(() {
+            shareGenerate();
+          });
+          break;
+        default:
+      }
     });
 
     await FlutterSiriSuggestions.instance.registerActivity(
         const FlutterSiriActivity("Process First Image", "mainActivity",
+            isEligibleForSearch: true,
+            isEligibleForPrediction: true,
+            contentDescription: "Process First Image",
+            suggestedInvocationPhrase: "open my app",
+            userInfo: {"info": "sample"}));
+    //
+    await FlutterSiriSuggestions.instance.registerActivity(
+        const FlutterSiriActivity("Share json", "shareActivity",
             isEligibleForSearch: true,
             isEligibleForPrediction: true,
             contentDescription: "Process First Image",
@@ -88,6 +104,20 @@ class _TakePictureScreenState extends State<TakePictureScreen> {
     }
   }
 
+  Future<void> generateFirstImage() async {
+    cancelProcess();
+    await getFirstPicture();
+    await processImage(pickedPhotoPath);
+    Share.share(listInformation.toString());
+  }
+
+  Future<void> shareGenerate() async {
+    cancelProcess();
+    await getFirstPicture();
+    await processImage(pickedPhotoPath);
+    Share.share(json.encode(listInformation), subject: 'Send to');
+  }
+
   Future<void> processImage(String? imgPath) async {
     if (imgPath != null) {
       if (listInformation.isEmpty) {
@@ -104,16 +134,19 @@ class _TakePictureScreenState extends State<TakePictureScreen> {
             int _x = block.lines[i].cornerPoints[0].x;
             int _y = block.lines[i].cornerPoints[0].y;
             //
-            listInformation.add(ImageInformation(x: _x, y: _y, text: _text).toJson());
+            listInformation
+                .add(ImageInformation(x: _x, y: _y, text: _text).toJson());
           }
         }
         setState(() {
-          resultText = listInformation.toString();
+          resultText = json.encode(listInformation);
         });
-         await Clipboard.setData(ClipboardData(text: listInformation.toString())).then((_) => 
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(listInformation.isEmpty ? 'Cant detect this Image' : 'Export json successful'),
-      )));
+        await Clipboard.setData(ClipboardData(text: listInformation.toString()))
+            .then((_) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text(listInformation.isEmpty
+                      ? 'Cant detect this Image'
+                      : 'Export json successful'),
+                )));
       }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
