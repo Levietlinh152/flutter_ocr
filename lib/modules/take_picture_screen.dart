@@ -108,7 +108,6 @@ class _TakePictureScreenState extends State<TakePictureScreen> {
     cancelProcess();
     await getFirstPicture();
     await processImage(pickedPhotoPath);
-    Share.share(listInformation.toString());
   }
 
   Future<void> shareGenerate() async {
@@ -130,12 +129,33 @@ class _TakePictureScreenState extends State<TakePictureScreen> {
         // create json
         for (TextBlock block in recognizedText.blocks) {
           for (int i = 0; i < block.lines.length; i++) {
-            String _text = block.lines[i].text;
-            int _x = block.lines[i].cornerPoints[0].x;
-            int _y = block.lines[i].cornerPoints[0].y;
+            String text = block.lines[i].text;
             //
-            listInformation
-                .add(ImageInformation(x: _x, y: _y, text: _text).toJson());
+            int x1 = block.lines[i].cornerPoints[0].x;
+            int x2 = block.lines[i].cornerPoints[1].x;
+            int x3 = block.lines[i].cornerPoints[2].x;
+            int x4 = block.lines[i].cornerPoints[3].x;
+            double centerX = (x1 + x2 + x3 + x4) / 4;
+            //
+            int y1 = block.lines[i].cornerPoints[0].y;
+            int y2 = block.lines[i].cornerPoints[1].y;
+            int y3 = block.lines[i].cornerPoints[2].y;
+            int y4 = block.lines[i].cornerPoints[3].y;
+            double centerY = (y1 + y2 + y3 + y4) / 4;
+            //
+            listInformation.add(ImageInformation(
+                    x1: x1,
+                    x2: x2,
+                    x3: x3,
+                    x4: x4,
+                    y1: y1,
+                    y2: y2,
+                    y3: y3,
+                    y4: y4,
+                    centerX: centerX,
+                    centerY: centerY,
+                    text: text)
+                .toJson());
           }
         }
         setState(() {
