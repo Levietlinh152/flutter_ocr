@@ -108,13 +108,18 @@ class _TakePictureScreenState extends State<TakePictureScreen> {
     cancelProcess();
     await getFirstPicture();
     await processImage(pickedPhotoPath);
+     await Future.delayed(const Duration(seconds: 1), () {
+      exit(0);
+    });
   }
 
   Future<void> shareGenerate() async {
     cancelProcess();
     await getFirstPicture();
     await processImage(pickedPhotoPath);
-    Share.share(json.encode(listInformation), subject: 'Send to');
+   await Future.delayed(const Duration(milliseconds: 500), () {
+      exit(0);
+    });
   }
 
   Future<void> processImage(String? imgPath) async {
@@ -161,7 +166,7 @@ class _TakePictureScreenState extends State<TakePictureScreen> {
         setState(() {
           resultText = json.encode(listInformation);
         });
-        await Clipboard.setData(ClipboardData(text: listInformation.toString()))
+        await Clipboard.setData(ClipboardData(text: json.encode(listInformation)))
             .then((_) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                   content: Text(listInformation.isEmpty
                       ? 'Cant detect this Image'
